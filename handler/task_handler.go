@@ -3,98 +3,97 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"strconv"
-
-	// dbfuncs "github.com/xali1ove/Yandex-FINAL/database"
 	utl "github.com/xali1ove/Yandex-FINAL/utils"
+	"net/http"
 )
 
-func (h *Handler) TaskHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) CreateTaskHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	switch r.Method {
-	case http.MethodPost:
-		task, err := utl.ParseHandlerTask(r, false)
-		if err != nil {
-			http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusInternalServerError)
-			return
-		}
-		id, err := h.DB.InsertTask(*task)
-		if err != nil {
-			http.Error(w, `{"error":"Ошибка при добавлении задачи в базу данных"}`, http.StatusInternalServerError)
-			return
-		}
-		resp := map[string]interface{}{
-			"id": id,
-		}
-		json.NewEncoder(w).Encode(resp)
-	case http.MethodGet:
-		id := r.URL.Query().Get("id")
-		idInt, err := utl.CheckFormatId(id)
-		if err != nil {
-			http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusMethodNotAllowed)
-			return
-		}
-		task, err := h.DB.GetTaskById(idInt)
-		if err != nil {
-			http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusMethodNotAllowed)
-			return
-		}
-		if err := json.NewEncoder(w).Encode(task); err != nil {
-			http.Error(w, `{"error": "Ошибка при отправке ответа"}`, http.StatusInternalServerError)
-		}
-	case http.MethodPut:
-		task, err := utl.ParseHandlerTask(r, true)
-		if err != nil {
-			http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusInternalServerError)
-			return
-		}
-		_, err = utl.CheckFormatId(task.ID)
-		if err != nil {
-			http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusMethodNotAllowed)
-			return
-		}
-		err = h.DB.UpdateTask(*task)
-		if err != nil {
-			http.Error(w, `{"error":"Задача не найдена"}`, http.StatusInternalServerError)
-			return
-		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
-	case http.MethodDelete:
-		id := r.URL.Query().Get("id")
-		_, err := utl.CheckFormatId(id)
-		if err != nil {
-			http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusMethodNotAllowed)
-			return
-		}
-		idInt, _ := strconv.Atoi(id) // не обрабатываю ошибку, тк уже выполнялась проверка в checkExistId()
-		err = h.DB.DelTaskById(idInt)
-		if err != nil {
-			http.Error(w, `{"error":"Ошибка при удалении задач"}`, http.StatusMethodNotAllowed)
-			return
-		}
-		json.NewEncoder(w).Encode(map[string]interface{}{})
-	default:
-		http.Error(w, `{"error":"Invalid request method"}`, http.StatusMethodNotAllowed)
+
+	task, err := utl.ParseHandlerTask(r, false)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusInternalServerError)
 		return
 	}
+
+	id, err := h.DB.InsertTask(*task)
+	if err != nil {
+		http.Error(w, `{"error":"Ошибка при добавлении задачи в базу данных"}`, http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{"id": id})
+}
+
+func (h *Handler) GetTaskHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	id := r.URL.Query().Get("id")
+	idInt, err := utl.CheckFormatId(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	task, err := h.DB.GetTaskById(idInt)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusNotFound)
+		return
+	}
+
+	json.NewEncoder(w).Encode(task)
+}
+
+func (h *Handler) UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	task, err := utl.ParseHandlerTask(r, true)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	if _, err = utl.CheckFormatId(task.ID); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	if err = h.DB.UpdateTask(*task); err != nil {
+		http.Error(w, `{"error":"Задача не найдена"}`, http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{"message": "Task updated"})
+}
+
+func (h *Handler) DeleteTaskHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	id := r.URL.Query().Get("id")
+	idInt, err := utl.CheckFormatId(id)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error": "%s"}`, err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	if err = h.DB.DelTaskById(idInt); err != nil {
+		http.Error(w, `{"error":"Ошибка при удалении задачи"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{"message": "Task deleted"})
 }
 
 func (h *Handler) TasksHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	switch r.Method {
-	case http.MethodGet:
-		tasks, err := h.DB.GetTasks()
-		if err != nil {
-			http.Error(w, `{"error":"Ошибка при получении задач"}`, http.StatusMethodNotAllowed)
-			return
-		}
-		response := map[string]interface{}{
-			"tasks": tasks,
-		}
-		json.NewEncoder(w).Encode(response)
-	default:
-		http.Error(w, `{"error":"Invalid request method"}`, http.StatusMethodNotAllowed)
+
+	tasks, err := h.DB.GetTasks()
+	if err != nil {
+		http.Error(w, `{"error":"Ошибка при получении задач"}`, http.StatusInternalServerError)
 		return
 	}
+
+	json.NewEncoder(w).Encode(map[string]interface{}{"tasks": tasks})
 }
