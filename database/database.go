@@ -53,13 +53,11 @@ func NewDB() (*DB, error) {
 		return nil, err
 	}
 
-	err = conn.Ping()
-	if err != nil {
+	if err := conn.Ping(); err != nil {
 		return nil, fmt.Errorf("не удалось подключиться к базе данных: %v", err)
 	}
 
-	err = createTable(conn)
-	if err != nil {
+	if err := createTable(conn); err != nil {
 		return nil, err
 	}
 
@@ -90,9 +88,7 @@ func (db *DB) GetTasks() ([]model.Task, error) {
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	if len(tasks) == 0 {
-		return nil, nil
-	}
+
 	return tasks, nil
 }
 
@@ -101,7 +97,7 @@ func (db *DB) GetTaskById(id int) (model.Task, error) {
 		return model.Task{}, errors.New("не установлено соединение с базой данных")
 	}
 
-	query := `SELECT * FROM scheduler WHERE id = ?`
+	query := `SELECT id, date, title, comment, repeat FROM scheduler WHERE id = ?`
 	var task model.Task
 	err := db.conn.QueryRow(query, id).Scan(&task.ID, &task.Date, &task.Title, &task.Comment, &task.Repeat)
 	if err == sql.ErrNoRows {
@@ -143,7 +139,10 @@ func (db *DB) UpdateTask(task model.Task) error {
 	}
 
 	rowAff, err := res.RowsAffected()
-	if rowAff != 1 {
+	if err != nil {
+		return err
+	}
+	if rowAff == 0 {
 		return errors.New("задача не найдена")
 	}
 	return nil
@@ -161,7 +160,10 @@ func (db *DB) DelTaskById(id int) error {
 	}
 
 	rowAff, err := res.RowsAffected()
-	if rowAff != 1 {
+	if err != nil {
+		return err
+	}
+	if rowAff == 0 {
 		return errors.New("задача не найдена")
 	}
 	return nil
