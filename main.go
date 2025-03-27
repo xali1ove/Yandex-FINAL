@@ -14,7 +14,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.GetConnection().Close()
+	defer db.Close()
 
 	h := &handler.Handler{DB: db}
 	port := os.Getenv("TODO_PORT")

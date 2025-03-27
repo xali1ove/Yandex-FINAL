@@ -18,6 +18,13 @@ type DB struct {
 	conn *sql.DB
 }
 
+func (db *DB) Close() error {
+	if db.conn != nil {
+		return db.conn.Close()
+	}
+	return nil
+}
+
 func createTable(conn *sql.DB) error {
 	createTableSQL := `
 		CREATE TABLE IF NOT EXISTS scheduler (
