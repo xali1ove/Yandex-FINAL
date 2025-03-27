@@ -92,7 +92,7 @@ func (db *DB) GetTasks() ([]model.Task, error) {
 		return nil, err
 	}
 	if len(tasks) == 0 {
-		return []model.Task{}, nil
+		return nil, nil
 	}
 	return tasks, nil
 }
